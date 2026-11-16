@@ -5,10 +5,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Unzip Project
-        run: unzip -o "Steno_Practice_Android_Project.zip"
-      - name: Fix Code and JVM Compatibility
+      - name: Unzip and Fix Project
         run: |
+          unzip -o "Steno_Practice_Android_Project.zip"
           cat << 'EOF' >> app/build.gradle.kts
 
           android {
@@ -18,15 +17,98 @@ jobs:
               }
           }
           EOF
-          python3 -c '
-          p = "app/src/main/java/com/example/stenopractice/MainActivity.kt"
-          lines = open(p).readlines()
-          lines.insert(1, "import android.app.AlertDialog\n")
-          for i, l in enumerate(lines):
-              if l.count("(") > l.count(")"):
-                  lines[i] = l.rstrip("\n") + ")" * (l.count("(") - l.count(")")) + "\n"
-          open(p, "w").writelines(lines)
-          '
+          cat << 'EOF' > app/src/main/java/com/example/stenopractice/MainActivity.kt
+          package com.example.stenopractice
+
+          import android.app.Activity
+          import android.app.AlertDialog
+          import android.graphics.Color
+          import android.os.Bundle
+          import android.os.SystemClock
+          import android.view.Gravity
+          import android.widget.*
+
+          class MainActivity : Activity() {
+              private var startTime = 0L
+              private var isRunning = false
+
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+
+                  val layout = LinearLayout(this).apply {
+                      orientation = LinearLayout.VERTICAL
+                      setPadding(40, 60, 40, 40)
+                      setBackgroundColor(Color.WHITE)
+                  }
+
+                  val title = TextView(this).apply {
+                      text = "Steno Typing Practice"
+                      textSize = 22f
+                      setTextColor(Color.BLACK)
+                      gravity = Gravity.CENTER
+                      setPadding(0, 0, 0, 30)
+                  }
+
+                  val sampleText = "The court observed that timely justice is the foundation of public trust in the legal system."
+                  val passageView = TextView(this).apply {
+                      text = "Passage:\n$sampleText"
+                      textSize = 16f
+                      setTextColor(Color.DKGRAY)
+                      setPadding(20, 20, 20, 30)
+                      setBackgroundColor(Color.parseColor("#F0F4F8"))
+                  }
+
+                  val inputBox = EditText(this).apply {
+                      hint = "Type the above passage here..."
+                      textSize = 16f
+                      minLines = 5
+                      gravity = Gravity.TOP
+                  }
+
+                  val btnLayout = LinearLayout(this).apply {
+                      orientation = LinearLayout.HORIZONTAL
+                      gravity = Gravity.CENTER
+                      setPadding(0, 30, 0, 0)
+                  }
+
+                  val startBtn = Button(this).apply { text = "Start Timer" }
+                  val submitBtn = Button(this).apply { text = "Check Result" }
+
+                  startBtn.setOnClickListener {
+                      startTime = SystemClock.elapsedRealtime()
+                      isRunning = true
+                      inputBox.setText("")
+                      Toast.makeText(this, "Timer Started!", Toast.LENGTH_SHORT).show()
+                  }
+
+                  submitBtn.setOnClickListener {
+                      if (!isRunning) {
+                          Toast.makeText(this, "Please click Start Timer first", Toast.LENGTH_SHORT).show()
+                          return@setOnClickListener
+                      }
+                      val elapsedMinutes = (SystemClock.elapsedRealtime() - startTime) / 60000.0
+                      val typed = inputBox.text.toString().trim()
+                      val words = if (typed.isEmpty()) 0 else typed.split("\\s+".toRegex()).size
+                      val wpm = if (elapsedMinutes > 0) (words / elapsedMinutes).toInt() else 0
+
+                      AlertDialog.Builder(this)
+                          .setTitle("Test Result")
+                          .setMessage("Words Typed: $words\nSpeed: $wpm WPM")
+                          .setPositiveButton("OK", null)
+                          .show()
+                      isRunning = false
+                  }
+
+                  btnLayout.addView(startBtn)
+                  btnLayout.addView(submitBtn)
+                  layout.addView(title)
+                  layout.addView(passageView)
+                  layout.addView(inputBox)
+                  layout.addView(btnLayout)
+                  setContentView(layout)
+              }
+          }
+          EOF
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
