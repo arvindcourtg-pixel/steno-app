@@ -7,6 +7,17 @@ jobs:
       - uses: actions/checkout@v4
       - name: Unzip Project
         run: unzip -o "Steno_Practice_Android_Project.zip"
+      - name: Fix JVM Compatibility
+        run: |
+          cat << 'EOF' >> app/build.gradle.kts
+
+          android {
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+          }
+          EOF
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
